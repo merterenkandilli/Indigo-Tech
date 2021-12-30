@@ -21,13 +21,14 @@ int full_IN3[4] = {0,0,1,0};
 int full_IN4[4] = {0,0,0,1};
 
 float angle;
-int k=0,counter5=0,x1,x2,y1,y2,counter4=0,x=0;
-int dir = 0; // initial direction, dir = 0 means clockwise rotation,  dir = 1 means counter-clockwise rotation
+int k=0,counter5=0,x1,x2,y1,y2,counter4=0,control1=0,x=0;
+int dir = 1; // initial direction, dir = 0 means clockwise rotation,  dir = 1 means counter-clockwise rotation
 int counter = 0;
 int step_number = 0;
 float full_step_angle = 0.176,point;
 //interrupt pin
 int interrupt_pin=2;
+unsigned long myTime,detection_time;
 void setup() {
   Serial.begin(9600);
   
@@ -66,36 +67,17 @@ void loop() {
   detected_true = agentDetection(distance);
   angle=angle_calculator();
   printPart(detected_true,distance);
- 
-  if(counter3==2 && counter4==0)
-  {
-    x1=calculateXcoordinate(distance);
-    y1=calculateYcoordinate(distance);
-    counter4+=1;
-  }
-  else if(counter3==2 && counter4==1)
-  {
-    x2=calculateXcoordinate(distance);
-    y2=calculateYcoordinate(distance);
-    counter4=0;
-  }
+  take_two_points(distance);
   detected_true=0;
-  if (digitalRead(2) == LOW && x==0) {
-  step_number=0; 
-  x++;}
-  else if(digitalRead(2) == HIGH && x!=0)
-  {
-    x=0;
-  }
- /* digitalWrite(3,HIGH);
-  delay(100);
-  digitalWrite(3,LOW);}*/
+  makeAngleZero();
+  myTime=millis();
+  Serial.print("mytime ");
+  Serial.print(myTime);
+  Serial.print("detection time ");
+  Serial.print(detection_time);
  
   if (sensor.timeoutOccurred()) { Serial.print(" TIMEOUT"); }
-  Serial.println(digitalRead(8));
- //  k=k+1;
- //  k=k%80;
-
+  Serial.println();
 }
 
 ISR(TIMER1_COMPA_vect){
@@ -105,11 +87,21 @@ ISR(TIMER1_COMPA_vect){
   digitalWrite(IN4,full_IN4[counter]);
   
  if (dir == 0) {counter++; step_number--;}    // dir = 0 represents the clockwise rotation
-/*else*/ if (dir == 1){counter--; step_number++;}  // dir = 1 represents the counter-clockwise rotation
+ else if (dir == 1){counter--; step_number++;}  // dir = 1 represents the counter-clockwise rotation
   counter = counter_controller(dir, counter);
   if (step_number >= 2048){step_number=0;
   counter5++;}
- else if (step_number < 0){dir = 1;}
+ else if (step_number < 0){step_number=0;}
+ if(counter4==1 && myTime>detection_time && control1==1)
+ {
+  dir=direction_controller(dir);
+  control1=0;
+ }
+ else if(counter4==0 && myTime>detection_time && control1==2)
+ {
+  dir=direction_controller(dir);
+  control1=0;
+ }
 }
 
 int counter_controller(int dir,int counter){
@@ -132,7 +124,35 @@ int closeDistanceElimination(int distance)
   else if(distance>2000) {distance=2000;}
   return distance;
 }
-
+void take_two_points(int distance)
+{
+  if(counter3==2 && counter4==0)
+  {
+    x1=calculateXcoordinate(distance);
+    y1=calculateYcoordinate(distance);
+    counter4+=1;
+    detection_time=myTime+1000;
+    control1=1;
+  }
+  else if(counter3==2 && counter4==1)
+  {
+    x2=calculateXcoordinate(distance);
+    y2=calculateYcoordinate(distance);
+    counter4=0;
+    detection_time=myTime+1000;
+    control1=2;
+  }
+}
+void makeAngleZero()
+{
+  if (digitalRead(2) == LOW && x==0) {
+  step_number=0; 
+  x++;}
+  else if(digitalRead(2) == HIGH && x!=0)
+  {
+    x=0;
+  }
+}
 int agentDetection(int distance)
 {
 
@@ -177,7 +197,7 @@ void printPart(int detected_true, int distance)
    Serial.print(y2);
    Serial.print("   Detection: POSITIVE");
   }
-  else 
+ /* else 
   {
    Serial.print("Distance: ");
    Serial.print(distance);
@@ -185,5 +205,5 @@ void printPart(int detected_true, int distance)
    digitalWrite(3,LOW);
    Serial.print("angle: ");
    Serial.print(angle); 
-  }
+  }*/
 }
